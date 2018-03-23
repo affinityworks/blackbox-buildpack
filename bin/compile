@@ -1,0 +1,44 @@
+pushd `pwd`
+
+echo "--- preparing repo..."
+
+###################################
+
+
+echo "--- importing private key"
+
+# print each line of private key to temp file
+# (replacing newline chars w/ linebreaks)
+# import private key and delete temp file
+
+echo $AFFINITY_HEROKU_PRIVATE_KEY | while read -r X; do echo ${X} | sed 's/\\n/\n/g'>> private.key; done && gpg --import private.key && rm private.key
+
+echo "+++ imported private key"
+
+###################################
+
+echo "--- installing blackbox"
+
+mkdir blackbox-tmp
+cd blackbox-tmp
+git clone https://github.com/StackExchange/blackbox.git
+cd blackbox
+sudo make copy-install
+cd ../../
+rm -rf blackbox-tmp
+
+echo "+++ installed blackbox"
+
+###################################
+
+echo "--- decrypting config files"
+
+blackbox_postdeploy
+
+echo "+++ decrypted config files"
+
+
+###################################
+
+echo "+++ DONE!"
+popd

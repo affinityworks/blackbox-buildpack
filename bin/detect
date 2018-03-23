@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# always run!
+"--- running blackbox buildpack"
+exit 0
