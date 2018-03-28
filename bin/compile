@@ -73,7 +73,8 @@ else
   echo "----- [ERROR]: heroku private key not on filesystem"
 fi
 
-gpg --import private.key && rm private.key
+# important to use gpg2 here!
+gpg2 --import private.key && rm private.key
 
 echo "+++ finished importing private key"
 
