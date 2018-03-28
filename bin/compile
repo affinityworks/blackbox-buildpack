@@ -11,7 +11,17 @@ echo "--- importing private key"
 # (replacing newline chars w/ linebreaks)
 # import private key and delete temp file
 
-echo $AFFINITY_HEROKU_PRIVATE_KEY | while read -r X; do echo ${X} | sed 's/\\n/\n/g'>> private.key; done && gpg --import private.key && rm private.key
+if [ -z "$AFFINITY_HEROKU_PRIVATE_KEY" ]
+  then echo "----- ERROR: AFFINITY_HEROKU_PRIVATE_KEY not defined"
+fi
+
+echo $AFFINITY_HEROKU_PRIVATE_KEY | while read -r X; do echo ${X} | sed 's/\\n/\n/g'>> private.key; done
+
+if [ ! -e private.key ]
+  then echo "----- ERROR: heroku private key not on filesystem"
+fi
+
+gpg --import private.key && rm private.key
 
 echo "+++ imported private key"
 
