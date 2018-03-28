@@ -107,7 +107,16 @@ else
   echo "----- [ERROR:] postdeploy script not found"
 fi
 
-bin/blackbox_postdeploy
+# enforce gpg2 as per: https://github.com/StackExchange/blackbox/issues/240
+GPG=gpg2 bin/blackbox_postdeploy
+
+# debugging commands to use if gpg versions action weird as per above issue
+
+# echo "... UBUNTU VERSNON:"
+# lsb_release -a
+
+# echo "...GPG VERSION:"
+# gpg --version
 
 echo "+++ finished decrypting config files"
 
