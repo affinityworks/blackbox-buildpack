@@ -1,9 +1,55 @@
+#!/usr/bin/env bash
+
+##
+## NOTES
+##
+
+# - (c) @aguestuser, affinity.works 2018
+# - AGPLv3
+# - runs `blackbox_postdeploy` to decrypt all encrypted files on the heroku filesystem at deploy time
+# - assumes you have a private pgp key stored in a config var (w/ `\n` chars at end of lines)
+# - assumes you have `blackbox` in the `/bin` dir of your build directory (provides workaround if not)
+# - tries to provide useful errors if assumptions don't hold
+
+# USAGE: include as first buildpack to run in your `app.json` file
+
+##
+## FUNCTIONS
+## 
+
+export_env_dir() {
+  env_dir=$1
+  whitelist_regex=${2:-''}
+  blacklist_regex=${3:-'^(PATH|GIT_DIR|CPATH|CPPATH|LD_PRELOAD|LIBRARY_PATH)$'}
+  if [ -d "$env_dir" ]; then
+    for e in $(ls $env_dir); do
+      echo "$e" | grep -E "$whitelist_regex" | grep -qvE "$blacklist_regex" &&
+        export "$e=$(cat $env_dir/$e)"
+      :
+    done
+  fi
+}
+
+##
+## EXECUTION
+## 
+
 pushd `pwd`
 
 echo "--- running BLACKBOX BUILDPACK..."
 
-###################################
+build_dir=$1
+cache_dir=$2
+env_dir=$3
 
+# export environment variables from heroku config vars
+export_env_dir $env_dir
+# change this if you have a different config var name for your private key:
+private_key_str=${AFFINITY_HEROKU_PRIVATE_KEY}
+# move into home directory of your project
+cd $build_dir
+
+###################################
 
 echo "--- importing private key"
 
@@ -11,19 +57,25 @@ echo "--- importing private key"
 # (replacing newline chars w/ linebreaks)
 # import private key and delete temp file
 
-if [ -z "$AFFINITY_HEROKU_PRIVATE_KEY" ]
-  then echo "----- ERROR: AFFINITY_HEROKU_PRIVATE_KEY not defined"
+if [ -n "$AFFINITY_HEROKU_PRIVATE_KEY" ]
+then
+  echo "... private key read from memory"
+else
+  echo "----- [ERROR]: AFFINITY_HEROKU_PRIVATE_KEY not defined"
 fi
 
 echo $AFFINITY_HEROKU_PRIVATE_KEY | while read -r X; do echo ${X} | sed 's/\\n/\n/g'>> private.key; done
 
-if [ ! -e private.key ]
-  then echo "----- ERROR: heroku private key not on filesystem"
+if [ -e private.key ]
+then
+  ehco "... private key written to file system"
+else
+  echo "----- [ERROR]: heroku private key not on filesystem"
 fi
 
 gpg --import private.key && rm private.key
 
-echo "+++ imported private key"
+echo "+++ finished importing private key"
 
 ###################################
 
@@ -48,12 +100,19 @@ echo "+++ imported private key"
 
 echo "--- decrypting config files"
 
+if [ -e bin/blackbox_postdeploy ]
+then
+  echo "... postdeploy script found"
+else
+  echo "----- [ERROR:] postdeploy script not found"
+fi
+
 bin/blackbox_postdeploy
 
-echo "+++ decrypted config files"
-
+echo "+++ finished decrypting config files"
 
 ###################################
 
 echo "+++ BLACKBOX BUILDPACK COMPLETE!"
 popd
+
