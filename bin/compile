@@ -73,6 +73,9 @@ else
   echo "----- [ERROR]: heroku private key not on filesystem"
 fi
 
+# important or else gpg2 calls won't work!
+gpg-agent --daemon
+
 # important to use gpg2 here!
 gpg2 --import private.key && rm private.key
 
