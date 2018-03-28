@@ -95,12 +95,10 @@ else
   echo "----- [ERROR]: heroku private key not on filesystem"
 fi
 
-# important or else gpg2 calls won't work!
 echo "... starting gpg-agent"
-gpg-agent --daemon
+gpg-agent --daemon # important or else gpg2 calls will fail
 
-# important to use gpg2 here!
-gpg2 --import private.key && rm private.key
+gpg2 --import private.key && rm private.key # important to use gpg2 here!
 
 echo "... private key securely stored and removed from file system"
 
@@ -138,6 +136,9 @@ fi
 
 # enforce gpg2 as per: https://github.com/StackExchange/blackbox/issues/240
 GPG=gpg2 bin/blackbox_postdeploy
+
+echo "... shutting down gpg agent"
+gpgconf --kill gpg-agent
 
 # debugging commands to use if gpg versions action weird as per above issue
 
