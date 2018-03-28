@@ -1,6 +1,6 @@
 pushd `pwd`
 
-echo "--- preparing repo..."
+echo "--- running BLACKBOX BUILDPACK..."
 
 ###################################
 
@@ -17,28 +17,33 @@ echo "+++ imported private key"
 
 ###################################
 
-echo "--- installing blackbox"
+# NOTE: this buildpack assumes you have blackbox scripts
+# under version control in `yourprojectroot/bin`
+# if you don't, you could install them and copy them there
+# with the following:
 
-mkdir blackbox-tmp
-cd blackbox-tmp
-git clone https://github.com/StackExchange/blackbox.git
-cd blackbox
-sudo make copy-install
-cd ../../
-rm -rf blackbox-tmp
+# echo "--- installing blackbox"
 
-echo "+++ installed blackbox"
+# mkdir blackbox-tmp
+# cd blackbox-tmp
+# git clone https://github.com/StackExchange/blackbox.git
+# cd blackbox/bin
+# for f in `find . -type f -iname "*" ! -iname "Makefile"`; do cp `pwd`/$$f ../../../bin/$$f; done
+# cd ../../../
+# rm -rf blackbox-tmp
+
+# echo "+++ installed blackbox"
 
 ###################################
 
 echo "--- decrypting config files"
 
-blackbox_postdeploy
+bin/blackbox_postdeploy
 
 echo "+++ decrypted config files"
 
 
 ###################################
 
-echo "+++ DONE!"
+echo "+++ BLACKBOX BUILDPACK COMPLETE!"
 popd
