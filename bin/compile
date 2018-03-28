@@ -1,21 +1,43 @@
 #!/usr/bin/env bash
 
-##
-## NOTES
-##
+################
+## AUTHORSHIP ##
+################
 
-# - (c) @aguestuser, affinity.works 2018
-# - AGPLv3
+# Copyright @aguestuser, affinity.works 2018
+# LICENSE: AGPLv3
+
+##############
+## PURPOSE: ##
+##############
+
 # - runs `blackbox_postdeploy` to decrypt all encrypted files on the heroku filesystem at deploy time
+
+
+###########
+## USAGE ##
+###########
+
+# - configure your `app.json` file such that this runs before your app is built
+# - all config files encrypted with blackbox will be decrypted before compile time
+# - optionally use the `heroku-buildpack-apt` to install gpg2 before this buildpack
+# - for instructions on configuring the order of buildpacks, see: https://devcenter.heroku.com/articles/app-json-schema#buildpacks
+
+
+##################
+## DEPENDENCIES ##
+##################
+
 # - assumes you have a private pgp key stored in a config var (w/ `\n` chars at end of lines)
+# - assumes that private key has a subkey with no password (as outlined here: https://github.com/StackExchange/blackbox#set-up-automated-users-or-role-accounts)
 # - assumes you have `blackbox` in the `/bin` dir of your build directory (provides workaround if not)
+# - assumes you have `gpg2` available on your filesystem (which might require: https://elements.heroku.com/buildpacks/heroku/heroku-buildpack-apt)
 # - tries to provide useful errors if assumptions don't hold
 
-# USAGE: include as first buildpack to run in your `app.json` file
 
-##
-## FUNCTIONS
-## 
+###############
+## FUNCTIONS ##
+## ############
 
 export_env_dir() {
   env_dir=$1
@@ -30,9 +52,9 @@ export_env_dir() {
   fi
 }
 
-##
-## EXECUTION
-## 
+###############
+## EXECUTION ##
+## ############
 
 pushd `pwd`
 
@@ -68,18 +90,21 @@ echo $AFFINITY_HEROKU_PRIVATE_KEY | while read -r X; do echo ${X} | sed 's/\\n/\
 
 if [ -e private.key ]
 then
-  ehco "... private key written to file system"
+  echo "... private key temorarily written to file system"
 else
   echo "----- [ERROR]: heroku private key not on filesystem"
 fi
 
 # important or else gpg2 calls won't work!
+echo "... starting gpg-agent"
 gpg-agent --daemon
 
 # important to use gpg2 here!
 gpg2 --import private.key && rm private.key
 
-echo "+++ finished importing private key"
+echo "... private key securely stored and removed from file system"
+
+echo "+++ DONE importing private key"
 
 ###################################
 
@@ -122,10 +147,10 @@ GPG=gpg2 bin/blackbox_postdeploy
 # echo "...GPG VERSION:"
 # gpg --version
 
-echo "+++ finished decrypting config files"
+echo "+++ DONE decrypting config files"
 
 ###################################
 
 echo "+++ BLACKBOX BUILDPACK COMPLETE!"
-popd
 
+popd
