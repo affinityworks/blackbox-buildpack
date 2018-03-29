@@ -28,13 +28,15 @@
 ## DEPENDENCIES ##
 ##################
 
+# - this buildpack makes a lot of assumptions about dependencies, but tries to provide useful errors if assumptions don't hold. for exmaple, it:
 # - assumes you have a private pgp key stored in a config var (w/ `\n` chars at end of lines)
 # - assumes that private key has a subkey with no password (as outlined here: https://github.com/StackExchange/blackbox#set-up-automated-users-or-role-accounts)
 # - assumes you have `blackbox` in the `/bin` dir of your build directory (provides workaround if not)
-# - assumes you have `gpg2` and `gpg-agent` available on your filesystem, which might require the apt buildback
-#   - for docs on the apt buildpack see: https://elements.heroku.com/buildpacks/heroku/heroku-buildpack-apt)
-#   - for example Aptfile with `gnupg2` and `gnupg-agent` packages see: https://raw.githubusercontent.com/affinityworks/main/d067a33d4adffa0f87b994e53237d45217ab2f6a/Aptfile
-# - tries to provide useful errors if assumptions don't hold
+# - assumes you have the commands `gpg2`, `gpg-agent`, and `killall` available on your image
+#   - this will require the `gnupg2`, `gnupg-agent`, and `psmisc` packages, respectively
+#   - this will (likely) require `heroku-buildpack-apt` to support installing deb packages
+#   - for docs on the buildpack see: https://elements.heroku.com/buildpacks/heroku/heroku-buildpack-apt)
+#   - for example Aptfile with `gnupg2`, `gnupg-agent`, and `psmisc` packages for ubuntu xenial see: https://raw.githubusercontent.com/affinityworks/main/d067a33d4adffa0f87b994e53237d45217ab2f6a/Aptfile
 
 
 ###############
