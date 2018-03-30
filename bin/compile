@@ -4,7 +4,7 @@
 ## AUTHORSHIP ##
 ################
 
-# Copyright @aguestuser, affinity.works 2018
+# Copyright @aguestuser, 2018
 # LICENSE: AGPLv3
 
 ##############
@@ -13,35 +13,17 @@
 
 # - runs `blackbox_postdeploy` to decrypt all encrypted files on the heroku filesystem at deploy time
 
+##########################
+## USAGE & DEPENDENCIES ##
+##########################
 
-###########
-## USAGE ##
-###########
-
-# - configure your `app.json` file such that this runs before your app is built
-# - all config files encrypted with blackbox will be decrypted before compile time
-# - optionally use the `heroku-buildpack-apt` to install gpg2 before this buildpack
-# - for instructions on configuring the order of buildpacks, see: https://devcenter.heroku.com/articles/app-json-schema#buildpacks
-
-
-##################
-## DEPENDENCIES ##
-##################
-
-# - this buildpack makes a lot of assumptions about dependencies, but tries to provide useful errors if assumptions don't hold. for exmaple, it:
-# - assumes you have a private pgp key stored in a config var (w/ `\n` chars at end of lines)
-# - assumes that private key has a subkey with no password (as outlined here: https://github.com/StackExchange/blackbox#set-up-automated-users-or-role-accounts)
-# - assumes you have `blackbox` in the `/bin` dir of your build directory (provides workaround if not)
-# - assumes you have the commands `gpg2`, `gpg-agent`, and `killall` available on your image
-#   - this will require the `gnupg2`, `gnupg-agent`, and `psmisc` packages, respectively
-#   - this will (likely) require `heroku-buildpack-apt` to support installing deb packages
-#   - for docs on the buildpack see: https://elements.heroku.com/buildpacks/heroku/heroku-buildpack-apt)
-#   - for example Aptfile with `gnupg2`, `gnupg-agent`, and `psmisc` packages for ubuntu xenial see: https://raw.githubusercontent.com/affinityworks/main/d067a33d4adffa0f87b994e53237d45217ab2f6a/Aptfile
-
+# see README
 
 ###############
 ## FUNCTIONS ##
 ## ############
+
+# read "config variables" from heroku filesystem into environment
 
 export_env_dir() {
   env_dir=$1
@@ -62,58 +44,76 @@ export_env_dir() {
 
 pushd `pwd`
 
-echo "--- running BLACKBOX BUILDPACK..."
+echo "+++++ BEGINNING blackbox-buildpack"
 
+# capture arguments from caller
 build_dir=$1
 cache_dir=$2
 env_dir=$3
 
 # export environment variables from heroku config vars
 export_env_dir $env_dir
-# change this if you have a different config var name for your private key:
-private_key_str=${AFFINITY_HEROKU_PRIVATE_KEY}
 # move into home directory of your project
 cd $build_dir
 
 ###################################
 
-echo "--- importing private key"
+echo "----- checking dependencies"
 
-# print each line of private key to temp file
-# (replacing newline chars w/ linebreaks)
-# import private key and delete temp file
+declare -a commands=("gpg2" "gpg-agent" "killall")
+declare -a packages=("gnupg2" "gnupg-agent" "psmisc")
 
-if [ -n "$AFFINITY_HEROKU_PRIVATE_KEY" ]
+# check for packages needed to run gpg2 without failing on ubuntu 16
+for i in ${!commands[@]}
+do
+  if [ -z `which ${commands[i]}` ]
+  then
+    echo "----- [ERROR]: Command ${commands[i]} not found. Try adding ${packages[i]} to your Aptfile."
+  fi
+done
+
+
+echo "----- importing private key"
+
+
+# check for presence of private key, alert if not found
+if [ -n "$PGP_PRIVATE_KEY_HEROKU" ]
 then
-  echo "... private key read from memory"
+  echo "----- private key read from memory"
 else
-  echo "----- [ERROR]: AFFINITY_HEROKU_PRIVATE_KEY not defined"
+  echo "----- [ERROR]: PGP_PRIVATE_KEY_HEROKU not defined"
 fi
 
-echo $AFFINITY_HEROKU_PRIVATE_KEY | while read -r X; do echo ${X} | sed 's/\\n/\n/g'>> private.key; done
+echo $PGP_PRIVATE_KEY_HEROKU |
+  while read -r X # print each line of private key to temp file
+    # replacing special characters w/ actual whitespace
+    do echo ${X} | sed 's/\\n/\n/g' | sed 's/\\s/ /g' >> private.key
+  done
+
 
 if [ -e private.key ]
 then
-  echo "... private key temorarily written to file system"
+  echo "----- private key temorarily written to file system"
 else
   echo "----- [ERROR]: heroku private key not on filesystem"
 fi
 
-echo "... starting gpg-agent"
-gpg-agent --daemon # important or else gpg2 calls will fail
+echo "----- starting gpg-agent"
 
-gpg2 --import private.key && rm private.key # important to use gpg2 here!
+# gpg2 calls require a running gpg-agent, so start one
+gpg-agent --daemon
 
-echo "... private key securely stored and removed from file system"
+# import private key and delete temp file
+# (must use gpg2 to be compatible w/ blackbox)
+gpg2 --import private.key && rm private.key
 
-echo "+++ DONE importing private key"
+echo "------ private key securely stored and removed from file system"
 
 ###################################
 
-# NOTE: this buildpack assumes you have blackbox scripts
-# under version control in `yourprojectroot/bin`
-# if you don't, you could install them and copy them there
-# with the following:
+# NOTE:
+# this buildpack assumes you have blackbox scripts under version control in `projectroot/bin`
+# if you don't, you could install them and copy them there with the following:
 
 # echo "--- installing blackbox"
 
@@ -129,33 +129,32 @@ echo "+++ DONE importing private key"
 
 ###################################
 
-echo "--- decrypting config files"
+echo "----- decrypting config files"
 
 if [ -e bin/blackbox_postdeploy ]
 then
-  echo "... postdeploy script found"
+  echo "----- postdeploy script found"
 else
-  echo "----- [ERROR:] postdeploy script not found"
+  echo "----- [ERROR]: postdeploy script not found"
 fi
 
 # enforce gpg2 as per: https://github.com/StackExchange/blackbox/issues/240
 GPG=gpg2 bin/blackbox_postdeploy
+echo "----- config files decrypted"
 
-echo "... shutting down gpg agent"
+echo "----- shutting down gpg agent"
 killall gpg-agent
 
 # debugging commands to use if gpg versions action weird as per above issue
 
-# echo "... UBUNTU VERSNON:"
+# echo "----- UBUNTU VERSION:"
 # lsb_release -a
 
-# echo "...GPG VERSION:"
+# echo "----- GPG VERSION:"
 # gpg --version
-
-echo "+++ DONE decrypting config files"
 
 ###################################
 
-echo "+++ BLACKBOX BUILDPACK COMPLETE!"
+echo "+++++ DONE running blackbox-buildpack"
 
 popd
