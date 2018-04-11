@@ -142,6 +142,7 @@ fi
 GPG=gpg2 bin/blackbox_postdeploy
 echo "----- config files decrypted"
 
+# build will hang unless you shut down gpg agent
 echo "----- shutting down gpg agent"
 killall gpg-agent
 
